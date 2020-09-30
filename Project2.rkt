@@ -70,6 +70,10 @@
     [(binop '- l r) (- (interp l funList) (interp r funList))]
     [other ((error 'parse2 "not a valid binary operator"))]))
 
+(check-exn (regexp (regexp-quote "not a valid binary operator"))
+           (lambda ()
+             (binopLookup (binop 'l (numC 6) (numC 9)) (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14))) (FunDefC 'main 'init (appC 'f (numC 2)))))))
+           
 ; interp takes in a ArithC expression and outputs the numeric result of that expression
 (define (interp [a : ExprC][funList : (Listof FunDefC)]) : Real
   (match a
@@ -100,9 +104,17 @@
 (check-equal? (interp (ifleq0C (numC 5) (numC 1) (numC -1))
                       (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
                             (FunDefC 'main 'init (appC 'f (numC 2))))) -1)
+(check-equal? (interp (ifleq0C (numC -1) (numC 1) (numC -1))
+                      (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
+                            (FunDefC 'main 'init (appC 'f (numC 2))))) 1)
 (check-equal? (interp (appC 'f (numC 5))
                       (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
                             (FunDefC 'main 'init (appC 'f (numC 2))))) 19)
+(check-exn (regexp (regexp-quote "Shouldn't get here"))
+           (lambda ()
+             (interp (idC 'fail)
+                      (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
+                            (FunDefC 'main 'init (appC 'f (numC 2)))))))
 
 ; Maps s-expressions directly to ExprC form
 (define (parse [s : Sexp]) : ExprC
