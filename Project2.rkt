@@ -46,7 +46,7 @@
 ; If no functions match return "reference to undefined function"
 (define (get-fundef [sym : Symbol][fds : (Listof FunDefC)]) : FunDefC
 (cond
-    [(empty? fds) (error 'get-fundef "reference to undefined function")]
+    [(empty? fds) (error 'get-fundef "DXUQ reference to undefined function")]
     [(cons? fds) (cond
                    [(equal? sym (FunDefC-name (first fds))) (first fds)]
                    [else (get-fundef sym (rest fds))])]))
@@ -57,7 +57,7 @@
               (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14))))
 (check-equal? (get-fundef 'main (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14))) (FunDefC 'main 'init (appC 'f (numC 2)))))
               (FunDefC 'main 'init (appC 'f (numC 2))))
-(check-exn (regexp (regexp-quote "reference to undefined function"))
+(check-exn (regexp (regexp-quote "DXUQ reference to undefined function"))
            (lambda ()
              (get-fundef 'bad (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14))) (FunDefC 'main 'init (appC 'f (numC 2)))))))
 
@@ -66,14 +66,12 @@
   (match b
     [(binop '+ l r) (+ (interp l funList) (interp r funList))]
     [(binop '* l r) (* (interp l funList) (interp r funList))]
-    [(binop '/ l r) (/ (interp l funList) (interp r funList))]
     [(binop '- l r) (- (interp l funList) (interp r funList))]
-    [other ((error 'parse2 "not a valid binary operator"))]))
+    [(binop '/ l r) (cond
+                      [(= (interp r funList) 0) (error 'binopLookup "DXUQ divide by 0 error")]
+                      [else (/ (interp l funList) (interp r funList))])]
+    [other ((error 'parse2 "DXUQ not a valid binary operator"))]))
 
-(check-exn (regexp (regexp-quote "not a valid binary operator"))
-           (lambda ()
-             (binopLookup (binop 'l (numC 6) (numC 9)) (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14))) (FunDefC 'main 'init (appC 'f (numC 2)))))))
-           
 ; interp takes in a ArithC expression and outputs the numeric result of that expression
 (define (interp [a : ExprC][funList : (Listof FunDefC)]) : Real
   (match a
@@ -87,7 +85,15 @@
                                     (FunDefC-arg (get-fundef fun funList))
                                     (FunDefC-body (get-fundef fun funList)))
                             funList)]
-    [(idC n) (error 'interp "Shouldn't get here")]))
+    [(idC n) (error 'interp "DXUQ Shouldn't get here")]))
+
+(check-exn (regexp (regexp-quote "DXUQ divide by 0 error"))
+           (lambda ()
+             (binopLookup (binop '/ (numC 6) (numC 0)) (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14))) (FunDefC 'main 'init (appC 'f (numC 2)))))))
+
+(check-exn (regexp (regexp-quote "DXUQ not a valid binary operator"))
+           (lambda ()
+             (binopLookup (binop 'l (numC 6) (numC 9)) (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14))) (FunDefC 'main 'init (appC 'f (numC 2)))))))
 
 (check-equal? (interp (numC 5)
                       (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
@@ -110,7 +116,7 @@
 (check-equal? (interp (appC 'f (numC 5))
                       (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
                             (FunDefC 'main 'init (appC 'f (numC 2))))) 19)
-(check-exn (regexp (regexp-quote "Shouldn't get here"))
+(check-exn (regexp (regexp-quote "DXUQ Shouldn't get here"))
            (lambda ()
              (interp (idC 'fail)
                       (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
@@ -124,7 +130,7 @@
     [(list (? symbol? sym) arg) (appC sym (parse arg))]
     [(list (? symbol? sym) l r) (binop sym (parse l) (parse r))]
     [(list 'ifleq0 test then else)(ifleq0C (parse test) (parse then) (parse else))]
-    [other (error 'parse2 "input ~e was not well formed" s)]))
+    [other (error 'parse2 "DXUQ input ~e was not well formed" s)]))
 
 (check-equal? (parse 5) (numC 5))
 (check-equal? (parse '(+ 5 6)) (binop '+ (numC 5) (numC 6)))
@@ -132,7 +138,7 @@
 (check-equal? (parse '(ifleq0 7 5 6)) (ifleq0C (numC 7) (numC 5) (numC 6)))
 (check-equal? (parse '(ifleq0 (+ 7 1) (* 5 2) 6))
               (ifleq0C (binop '+ (numC 7) (numC 1)) (binop '* (numC 5) (numC 2)) (numC 6)))
-(check-exn (regexp (regexp-quote "input \"huh\" was not well formed"))
+(check-exn (regexp (regexp-quote "DXUQ input \"huh\" was not well formed"))
            (lambda () (parse "huh")))
 
 ; Parses a function definition
@@ -147,10 +153,8 @@
               (FunDefC 'quadruple 'x (appC 'double (appC 'double (idC 'x)))))
 
 ; pars-prog: Parse functions and outputs a list of functions
-(define (parse-prog [s : (Listof Sexp)]) : (Listof FunDefC)
-  (match s
-    ['() '()]
-    [else (cons (parse-fundef (first s)) (parse-prog (rest s)))]))
+(define (parse-prog [s : Sexp]) : (Listof FunDefC)
+  (for/list : (Listof FunDefC) ([fun (in-list s)]) (parse-fundef fun)))
 
 (check-equal? (parse-prog '{{fundef {f x} {+ x 14}}{fundef {main init} {f 2}}})
               (list (FunDefC 'f 'x (binop '+ (idC 'x) (numC 14)))
@@ -170,3 +174,15 @@
   (interp-fns (parse-prog s)))
 
 (check-equal? (top-interp '{{fundef {f x} {+ x 14}}{fundef {main init} {f 2}}}) 16)
+(check-equal? (top-interp '{{fundef {double x} {+ x x}}{fundef {quadrouple x} {double {double x}}}{fundef {f x} {quadrouple x}}{fundef {main init} {f 2}}}) 8)
+
+; *The* big test case. This actually took me longer than I would like to admit to get working.
+(check-equal? (top-interp '{{fundef {round x}
+                                    {ifleq0 {- x .5} 0 {+ 1 {round {- x 1}}}}}
+                            {fundef {main init} {round 2.6}}}) 3)
+(check-equal? (top-interp '{{fundef {round x}
+                                    {ifleq0 {- x .5} 0 {+ 1 {round {- x 1}}}}}
+                            {fundef {main init} {round 2.1}}}) 2)
+(check-equal? (top-interp '{{fundef {round x}
+                                    {ifleq0 {- x .5} 0 {+ 1 {round {- x 1}}}}}
+                            {fundef {main init} {round .1}}}) 0)
